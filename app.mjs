@@ -1,0 +1,15 @@
+import { shortestPath } from './search.mjs';
+const width = 24, height = 16, board = document.querySelector('#board'), status = document.querySelector('#status');
+let start = 7 * width + 3, goal = 7 * width + 20, tool = 'wall', painting = false, runId = 0;
+const walls = new Set(), cells = [];
+for (let id = 0; id < width * height; id++) { const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.id = id; board.append(cell); cells.push(cell); }
+function draw(visited = new Set(), path = new Set()) { cells.forEach((cell, id) => { cell.className = 'cell'; if (walls.has(id)) cell.classList.add('wall'); if (visited.has(id)) cell.classList.add('visited'); if (path.has(id)) cell.classList.add('path'); if (id === start) cell.classList.add('start'); if (id === goal) cell.classList.add('goal'); }); }
+function edit(id) { if (!Number.isInteger(id)) return; runId++; if (tool === 'start' && id !== goal) { walls.delete(id); start = id; } else if (tool === 'goal' && id !== start) { walls.delete(id); goal = id; } else if (id !== start && id !== goal) { if (tool === 'wall') walls.add(id); if (tool === 'erase') walls.delete(id); } draw(); status.textContent = 'Grid updated. Press Find path.'; }
+board.addEventListener('pointerdown', e => { const cell = e.target.closest('.cell'); if (!cell) return; painting = true; edit(Number(cell.dataset.id)); });
+board.addEventListener('pointermove', e => { if (!painting || !['wall', 'erase'].includes(tool)) return; const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest('.cell'); if (cell && board.contains(cell)) edit(Number(cell.dataset.id)); });
+window.addEventListener('pointerup', () => painting = false);
+document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => { tool = button.dataset.tool; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b === button)); }));
+document.querySelector('#random').addEventListener('click', () => { runId++; walls.clear(); for (let id = 0; id < cells.length; id++) if (id !== start && id !== goal && Math.random() < .27) walls.add(id); draw(); status.textContent = 'Random walls added.'; });
+document.querySelector('#clear').addEventListener('click', () => { runId++; walls.clear(); draw(); status.textContent = 'Walls cleared.'; });
+document.querySelector('#run').addEventListener('click', async () => { const current = ++runId; const result = shortestPath({ width, height, walls, start, goal, algorithm: document.querySelector('#algorithm').value }); const visited = new Set(), path = new Set(); status.textContent = 'Searching…'; draw(); for (let i = 0; i < result.visited.length; i += 6) { if (current !== runId) return; result.visited.slice(i, i + 6).forEach(id => visited.add(id)); draw(visited); await new Promise(resolve => setTimeout(resolve, 12)); } if (current !== runId) return; result.path.forEach(id => path.add(id)); draw(visited, path); status.textContent = result.reached ? `Shortest path: ${result.distance} steps · ${result.visited.length} cells explored` : `No path found · ${result.visited.length} cells explored`; });
+draw();
